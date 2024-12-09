@@ -1,0 +1,15 @@
+global this is a global variable - points to the window object
+
+then why do we need it? if it is the same as window
+
+Well, globalThis can be used outside the browser
+
+Node does not really work as a browser. The node version of window is Global object
+
+
+globalThis and global exist as both part of window and node
+
+for us to use the import export from ES6 we have to either use .mjs extension, or
+we add "type": "module",  in our package.json, if you dont have package.json, just
+run npm init -y
+

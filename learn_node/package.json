@@ -1,0 +1,16 @@
+{
+  "name": "learn_node",
+  "version": "1.0.0",
+  "main": "modules_in_node.js",
+  "type": "module",
+  "scripts": {
+    "start": "nodemon building_a_server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}

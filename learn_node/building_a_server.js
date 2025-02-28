@@ -1,15 +1,17 @@
-import http from 'http'
+import { response } from 'express';
+import http from 'http';
 
 const server = http.createServer((request, response) => {
-    // console.log('headers', request.headers)
-    console.log('method', request.method)
-    console.log('url', request.url)
-    const users = {
-        name: 'John',
-        hobby: 'Skating'
+    // console.log('method', request.method);
+    // console.log('url', request.url);
+    // console.log('headers', request.headers);
+    const user = {
+        name: 'Lucky Baraka',
+        hobby: 'Boxing'
     }
     response.setHeader('Content-Type', 'application/json');
-    response.end(JSON.stringify(users))
+    response.end(JSON.stringify(user))
+
 })
 
-server.listen(3000)
+server.listen(3000);

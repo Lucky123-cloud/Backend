@@ -34,7 +34,7 @@ export default class Currency {
         if (typeof val === 'string') { 
             this._code = val;
          } else {
-            return new TypeError("code must be a string");
+            return new TypeError("Code must be a string");
          }
     }
 

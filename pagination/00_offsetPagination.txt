@@ -1,0 +1,71 @@
+https://www.moesif.com/blog/technical/api-design/REST-API-Design-Filtering-Sorting-and-Pagination/#pagination
+
+most endpoints that returns a list of entities will need to have some sort of pagination
+without pagination, a search could return millions or even billions of hits causing extraneous network traffic
+
+Paging requires an implied ordering. By default this may be the item’s unique identifier, but can be other ordered fields such as a created date.
+
+offset pagination
+*****************
+
+### **Offset Pagination: A Simple Explanation**
+Offset pagination is a common way to split large datasets into smaller, manageable chunks (pages). It works by:  
+1. **Skipping** a fixed number of items (`offset`).  
+2. **Returning** a limited number of items (`limit`).  
+
+---
+
+### **How It Works**
+- **Formula:**  
+  ```sql
+  SELECT * FROM items ORDER BY id LIMIT 10 OFFSET 20;
+  ```
+  - `LIMIT 10` → Return 10 items per page.  
+  - `OFFSET 20` → Skip the first 20 items (i.e., show page 3).  
+
+- **Example (API Request):**  
+  ```
+  GET /items?limit=10&offset=20
+  ```
+  - Returns items 21–30 (page 3 if `limit=10`).  
+
+---
+
+### **Pros & Cons**
+| **Pros**                          | **Cons**                          |
+|-----------------------------------|-----------------------------------|
+| ✅ Simple to implement.           | ⚠️ Slow for large offsets (e.g., `OFFSET 100000` scans all skipped rows). |
+| ✅ Works with any sorting.        | ⚠️ Inconsistent if data changes (e.g., new items shift offsets). |
+| ✅ Stateless (no cursor needed).  | ⚠️ Duplicates/skips if items are added/deleted between requests. |
+
+---
+
+### **Alternatives**
+1. **Cursor Pagination** (e.g., `?cursor=last_id&limit=10`):  
+   - Faster for large datasets (no `OFFSET`).  
+   - Stable across data changes.  
+   - Example: Twitter’s API.  
+
+2. **Keyset Pagination** (e.g., `?last_id=123&limit=10`):  
+   - Uses indexed columns (e.g., `WHERE id > 123`).  
+   - Ideal for infinite scroll.  
+
+---
+
+### **When to Use Offset Pagination**
+- Small datasets.  
+- Static data (rare changes).  
+- Simple UIs with page numbers (e.g., `Page 1, 2, 3...`).  
+
+**Code Example (Python/Flask):**  
+```python
+from flask import request
+
+@app.route('/items')
+def get_items():
+    page = int(request.args.get('page', 1))
+    per_page = 10
+    offset = (page - 1) * per_page
+    items = db.query_items(limit=per_page, offset=offset)
+    return jsonify(items)
+```

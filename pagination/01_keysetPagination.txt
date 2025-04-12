@@ -1,0 +1,174 @@
+https://www.moesif.com/blog/technical/api-design/REST-API-Design-Filtering-Sorting-and-Pagination/#pagination
+
+# **Keyset Pagination (aka Cursor Pagination) in JavaScript**
+
+Keyset pagination is a more efficient alternative to offset pagination, especially for large datasets. Instead of using `OFFSET`, it uses a **unique key (cursor)** from the last item to fetch the next set of records.
+
+---
+
+## **1. How Keyset Pagination Works**
+### **Core Idea:**
+- Fetch items where `id > last_seen_id` (or another unique, sequential field).
+- No `OFFSET`, so it’s faster (avoids scanning skipped rows).
+- Consistent even if new data is added/deleted.
+
+### **Example Query (SQL):**
+```sql
+-- First page (no cursor)
+SELECT * FROM items ORDER BY id DESC LIMIT 10;
+
+-- Next page (using last item's ID as cursor)
+SELECT * FROM items WHERE id < :last_seen_id ORDER BY id DESC LIMIT 10;
+```
+
+---
+
+## **2. Frontend Implementation (React)**
+```jsx
+import { useState, useEffect } from 'react';
+
+function ItemList() {
+  const [items, setItems] = useState([]);
+  const [lastId, setLastId] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+  const limit = 10;
+
+  const fetchItems = async () => {
+    const url = `/api/items?limit=${limit}${lastId ? `&cursor=${lastId}` : ''}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    if (data.length === 0) setHasMore(false);
+    else {
+      setItems(prev => [...prev, ...data]);
+      setLastId(data[data.length - 1].id); // Update cursor
+    }
+  };
+
+  useEffect(() => { fetchItems(); }, []);
+
+  return (
+    <div>
+      <h2>Items</h2>
+      <ul>
+        {items.map(item => (
+          <li key={item.id}>{item.name}</li>
+        ))}
+      </ul>
+      {hasMore && <button onClick={fetchItems}>Load More</button>}
+    </div>
+  );
+}
+```
+
+### **Key Points:**
+- **Initial load**: Fetches first `limit` items.
+- **Subsequent loads**: Uses `cursor=lastId` to get the next batch.
+- **Stops when** `data.length === 0` (no more items).
+
+---
+
+## **3. Backend Implementation (Node.js + Express)**
+```javascript
+const express = require('express');
+const app = express();
+
+// Mock database (sorted by `id` descending)
+const items = Array.from({ length: 100 }, (_, i) => ({ 
+  id: i + 1, 
+  name: `Item ${i + 1}` 
+})).reverse(); // Newest first
+
+app.get('/api/items', (req, res) => {
+  const limit = parseInt(req.query.limit) || 10;
+  const cursor = parseInt(req.query.cursor);
+
+  let result;
+  if (!cursor) {
+    // First page (no cursor)
+    result = items.slice(0, limit);
+  } else {
+    // Find index of cursor, then take next `limit` items
+    const cursorIndex = items.findIndex(item => item.id === cursor);
+    result = items.slice(cursorIndex + 1, cursorIndex + 1 + limit);
+  }
+
+  res.json(result);
+});
+
+app.listen(3000, () => console.log('Server running'));
+```
+
+### **Key Points:**
+- **First request**: Returns the first `limit` items.
+- **Next requests**: Uses `cursor` to find where to start the next batch.
+- **No `OFFSET`**: Uses array slicing (replace with a real DB query in production).
+
+---
+
+## **4. Real Database Example (SQL + Node.js)**
+### **Using PostgreSQL:**
+```javascript
+const { Pool } = require('pg');
+const pool = new Pool();
+
+app.get('/api/items', async (req, res) => {
+  const limit = parseInt(req.query.limit) || 10;
+  const cursor = parseInt(req.query.cursor);
+
+  let query, params;
+  if (!cursor) {
+    query = 'SELECT * FROM items ORDER BY id DESC LIMIT $1';
+    params = [limit];
+  } else {
+    query = 'SELECT * FROM items WHERE id < $1 ORDER BY id DESC LIMIT $2';
+    params = [cursor, limit];
+  }
+
+  const result = await pool.query(query, params);
+  res.json(result.rows);
+});
+```
+
+### **Equivalent in MySQL:**
+```sql
+-- First page
+SELECT * FROM items ORDER BY id DESC LIMIT 10;
+
+-- Next page
+SELECT * FROM items WHERE id < :cursor ORDER BY id DESC LIMIT 10;
+```
+
+---
+
+## **5. Keyset vs. Offset Pagination**
+| Feature               | **Keyset Pagination**                     | **Offset Pagination**               |
+|----------------------|------------------------------------------|------------------------------------|
+| **Performance**       | ✅ Fast (no `OFFSET` scan)               | ⚠ Slow for large offsets          |
+| **Consistency**       | ✅ Stable (immune to inserts/deletes)   | ⚠ Breaks if data changes          |
+| **Use Case**          | Infinite scroll, APIs with sorting       | Page-numbered UIs (1, 2, 3...)    |
+| **Backend Query**     | `WHERE id < :cursor LIMIT 10`            | `LIMIT 10 OFFSET 20`              |
+
+---
+
+## **6. When to Use Keyset Pagination?**
+- **Large datasets** (better performance).
+- **Real-time feeds** (Twitter, Reddit, etc.).
+- **APIs requiring stable pagination**.
+
+---
+
+## **7. Advanced: Multi-Column Keyset Pagination**
+If sorting by **non-unique fields** (e.g., `created_at`), use:
+```sql
+SELECT * FROM items 
+WHERE (created_at, id) < (:last_created_at, :last_id)
+ORDER BY created_at DESC, id DESC 
+LIMIT 10;
+```
+
+---
+
+### **Final Thoughts**
+- **✅ Use Keyset Pagination** for performance-critical apps.
+- **✅ Use Offset Pagination** for simple page-numbered UIs.

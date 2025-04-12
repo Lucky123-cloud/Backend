@@ -1,0 +1,120 @@
+# **Seek Pagination: The Most Efficient Pagination Technique**
+
+Seek pagination (sometimes called "keyset" or "cursor-based" pagination) is the most performant way to paginate large datasets in modern applications. Unlike traditional offset pagination (which uses `LIMIT/OFFSET`), seek pagination uses a **filtering approach** that avoids performance pitfalls while maintaining consistency.
+
+---
+
+## **1. How Seek Pagination Works**
+### **Core Principle**
+Instead of skipping rows (`OFFSET`), seek pagination:
+1. **Uses a unique, ordered column** (e.g., `id`, `created_at`) as a cursor.
+2. **Filters records** based on the last seen value (`WHERE id > last_id`).
+3. **Returns a fixed batch size** (`LIMIT`).
+
+### **Example Queries**
+#### **First Page**
+```sql
+SELECT * FROM items
+ORDER BY id ASC
+LIMIT 10;
+```
+#### **Next Page (Using Last Fetched ID)**
+```sql
+SELECT * FROM items
+WHERE id > 10  -- Last ID from previous page
+ORDER BY id ASC
+LIMIT 10;
+```
+
+---
+
+## **2. Why Seek Pagination is Better**
+| Feature               | Seek Pagination | Offset Pagination |
+|----------------------|----------------|------------------|
+| **Performance**       | ✅ O(1) (index scan) | ⚠ O(n) (full scan) |
+| **Consistency**       | ✅ Stable (immune to inserts/deletes) | ⚠ Breaks if data changes |
+| **Database Load**     | ✅ Low (no `OFFSET` penalty) | ⚠ High for large offsets |
+| **Use Case**          | Infinite scroll, APIs | Page-numbered UIs |
+
+---
+
+## **3. Implementing Seek Pagination (JavaScript Examples)**
+### **Frontend (React)**
+```jsx
+function ItemList() {
+  const [items, setItems] = useState([]);
+  const [lastId, setLastId] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+
+  const loadMore = async () => {
+    const res = await fetch(`/api/items?limit=10${lastId ? `&after=${lastId}` : ''}`);
+    const data = await res.json();
+    
+    if (data.length === 0) setHasMore(false);
+    else {
+      setItems(prev => [...prev, ...data]);
+      setLastId(data[data.length - 1].id); // Update cursor
+    }
+  };
+
+  return (
+    <div>
+      {items.map(item => <div key={item.id}>{item.name}</div>)}
+      {hasMore && <button onClick={loadMore}>Load More</button>}
+    </div>
+  );
+}
+```
+
+### **Backend (Node.js + SQL)**
+```javascript
+// Using PostgreSQL
+app.get('/api/items', async (req, res) => {
+  const limit = parseInt(req.query.limit) || 10;
+  const after = parseInt(req.query.after);
+
+  const query = after
+    ? 'SELECT * FROM items WHERE id > $1 ORDER BY id LIMIT $2'
+    : 'SELECT * FROM items ORDER BY id LIMIT $1';
+
+  const result = await pool.query(query, after ? [after, limit] : [limit]);
+  res.json(result.rows);
+});
+```
+
+---
+
+## **4. Handling Multi-Column Ordering**
+If sorting by **non-unique fields** (e.g., `created_at`), use:
+```sql
+SELECT * FROM items
+WHERE (created_at, id) > ('2023-10-01', 100)
+ORDER BY created_at, id
+LIMIT 10;
+```
+
+---
+
+## **5. When to Use Seek Pagination**
+- **High-performance APIs** (Twitter, Facebook, etc.)
+- **Infinite scroll** (mobile apps, social feeds)
+- **Large datasets** (avoiding `OFFSET` slowdowns)
+
+---
+
+## **6. Limitations**
+- **Requires ordered column** (must sort by `id`, `created_at`, etc.)
+- **No random access** (can't jump to page 50 directly)
+- **Slightly more complex** than offset pagination
+
+---
+
+## **Final Verdict**
+| **Pagination Type** | **Best For** | **Performance** |
+|---------------------|-------------|----------------|
+| **Seek Pagination** | APIs, infinite scroll | ✅ Blazing fast |
+| **Offset Pagination** | Page-numbered UIs | ⚠ Slow for large offsets |
+| **Cursor Pagination** | GraphQL, real-time feeds | ✅ Fast, but complex |
+
+**Recommendation:**  
+Use **seek pagination** for all performance-critical applications. Reserve offset pagination only for simple, small datasets with page numbers.  

@@ -1,0 +1,5 @@
+Reuse existing code
+
+Organize our code
+
+Explore only the functionality that will be used

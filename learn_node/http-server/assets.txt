@@ -1,0 +1,11 @@
+https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods
+
+https://www.mulesoft.com/resources/api/what-is-an-api
+
+https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+
+https://developer.mozilla.org/en-US/docs/Glossary/Origin
+
+https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy
+
+https://en.wikipedia.org/wiki/Whitelisting
